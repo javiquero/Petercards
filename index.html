@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0805">
+<meta name="description" content="Cáscaras y Paraguas: duelo de cartas por turnos con plátanos, cáscaras y paraguas contra Don Bigote.">
+<link rel="icon" type="image/webp" href="assets/peel.webp">
+<link rel="apple-touch-icon" href="assets/cavendish.webp">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Cáscaras y Paraguas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Lilita+One&family=Luckiest+Guy&display=swap">
+<style>
+/* Layout: landscape like the reference (forecast sign left · sand-and-wood board centre · hand right · wooden HUD bar bottom); portrait stacks board, forecast, HUD, inspector, hand */
+:root{
+  --night:#0b0805; --night-2:#21150b;
+  --wood:#8b5a2b; --wood-d:#3e230e; --wood-l:#c08548;
+  --gold:#f6c43c; --gold-d:#a87511; --ring:#c58a1d;
+  --parch:#f4e3bd; --parch-d:#d9c08e;
+  --steel:#9fb7c9; --steel-d:#4d6679;
+  --leaf:#7ad13f; --leaf-d:#2d6512;
+  --sky:#55baf0; --tomato:#e2452b; --orange:#f28c1c; --blue:#2f7fd0; --green:#3fae2a;
+  --ink:#2a190b; --cream:#fff4d8; --muted:#d6bd95;
+  --f-title:'Luckiest Guy','Arial Black',Impact,sans-serif;
+  --f-name:'Lilita One','Arial Black',Impact,sans-serif;
+  --f-body:'Baloo 2','Trebuchet MS',system-ui,sans-serif;
+  color-scheme:dark;
+}
+html{height:100%;box-sizing:border-box}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{height:100%;margin:0;background:radial-gradient(110% 80% at 50% 40%,#22160c 0%,var(--night) 70%);background-color:var(--night);color:var(--cream);font-family:var(--f-body);overflow:hidden;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--sky);outline-offset:2px}
+img{display:block;max-width:100%}
+.wood{background:url(assets/wood.webp) repeat 0 0/auto 30px,var(--wood);box-shadow:inset 0 0 0 2px #00000055,inset 0 2px 0 #ffffff22}
+
+/* ============ GRID ============ */
+#app{position:relative;height:100%;max-width:1100px;margin:0 auto;padding-inline:16px;padding-block:8px;display:grid;gap:8px;
+  grid-template-columns:minmax(124px,.62fr) minmax(0,2.2fr) minmax(220px,1.15fr);
+  grid-template-rows:minmax(0,1fr) auto;
+  grid-template-areas:"side main hand" "bar bar bar";overflow:hidden}
+#side{grid-area:side;display:flex;flex-direction:column;gap:8px;min-height:0;overflow-y:auto;scrollbar-width:none;padding-top:4px}
+#side::-webkit-scrollbar{display:none}
+#mainc{grid-area:main;display:flex;flex-direction:column;gap:6px;min-height:0;min-width:0;align-items:center;justify-content:center}
+#handWrap{grid-area:hand;display:flex;flex-direction:column;min-height:0}
+#bar{grid-area:bar}
+#side.selmode #forecast{display:none}
+
+@media (orientation:portrait){
+  #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto auto minmax(0,1fr);
+    grid-template-areas:"main" "fc" "bar" "insp" "hand";gap:6px;overflow-y:auto}
+  #side{display:contents}
+  #forecast{grid-area:fc}
+  #insp{grid-area:insp}
+  #side.selmode #forecast{display:flex}
+}
+
+/* ============ CARD ============ */
+.card{position:relative;container-type:inline-size;aspect-ratio:.72}
+.card.big{aspect-ratio:.64}
+.cf{position:absolute;inset:0;border-radius:8cqw;background:linear-gradient(155deg,#ffe78a 0%,var(--gold) 38%,var(--gold-d) 100%);border:1.4cqw solid #5e3d05;box-shadow:inset 0 0 0 1.6cqw #fff3b055,0 1.5cqw 0 #0008}
+.spell .cf{background:linear-gradient(155deg,#e3eef6 0%,var(--steel) 40%,var(--steel-d) 100%);border-color:#1f3342;box-shadow:inset 0 0 0 1.6cqw #ffffff44,0 1.5cqw 0 #0008}
+.por{position:absolute;left:9cqw;width:82cqw;top:5cqw;aspect-ratio:1;border-radius:50%;overflow:hidden;border:3.4cqw solid var(--ring);box-shadow:0 0 0 1cqw #5e3d05,inset 0 0 4cqw #0008;background:#3a2a10}
+.spell .por{border-color:#7f97aa;box-shadow:0 0 0 1cqw #1f3342,inset 0 0 4cqw #0008}
+.por img{width:100%;height:100%;object-fit:cover;transform:scale(1.13)}
+.por.cut img{object-fit:contain;transform:scale(.86)}
+.bg-sky{background:radial-gradient(circle at 50% 35%,#d8f2ff,#3a8fd0 80%)}
+.bg-jungle{background:radial-gradient(circle at 50% 40%,#d6efa2,#4b7a20 80%)}
+.bg-sunset{background:radial-gradient(circle at 50% 40%,#ffe08a,#d9612a 85%)}
+.bg-purple{background:radial-gradient(circle at 50% 40%,#ead4ff,#5f3299 85%)}
+.bg-sand{background:radial-gradient(circle at 50% 40%,#fbe9c0,#c99a55 85%)}
+.ban{position:absolute;left:2cqw;right:2cqw;top:75cqw;height:19cqw;border-radius:3.5cqw;background:linear-gradient(#a06a35,#6b4219 55%,#4a2c10);border:1.2cqw solid #2a1706;box-shadow:inset 0 1cqw 0 #ffffff30,0 1cqw 0 #0006;color:#fff;font:10.5cqw/16.6cqw var(--f-name);text-align:center;padding-inline:3cqw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 .8cqw 0 #000a,0 0 1cqw #000}
+.txt{position:absolute;left:8cqw;right:8cqw;top:97cqw;bottom:7cqw;background:linear-gradient(var(--parch),#ead3a2);border-radius:4cqw;box-shadow:inset 0 0 0 1cqw var(--parch-d),inset 0 1.5cqw 3cqw #0002;color:var(--ink);display:flex;align-items:center;justify-content:center;gap:2cqw;font-size:12cqw;padding:2cqw}
+.withtext .txt{font:700 10.4cqw/1.07 var(--f-body);text-align:center;padding:1.5cqw 3cqw;letter-spacing:-.1cqw}
+.unit.withtext .txt{left:14cqw;right:14cqw;font-size:9.8cqw}
+.big .txt{top:96cqw;bottom:8cqw;font:600 7.4cqw/1.2 var(--f-body);text-align:center;padding:3cqw 4cqw;overflow:hidden;display:block}
+.big .txt b{font-weight:800}
+.cost{position:absolute;top:-5cqw;left:-5cqw;width:27cqw;height:27cqw;border-radius:50%;display:grid;place-items:center;font:18cqw/1 var(--f-title);color:#fff;text-shadow:0 1cqw 0 #000a,0 0 1.5cqw #000;border:1.8cqw solid #2a1706;z-index:2;padding-top:2cqw;font-variant-numeric:tabular-nums}
+.r-o .cost{background:radial-gradient(circle at 38% 32%,#ffd08a,var(--orange) 50%,#a64d06)}
+.r-b .cost{background:radial-gradient(circle at 38% 32%,#bfe4ff,var(--blue) 50%,#123f79)}
+.r-g .cost{background:radial-gradient(circle at 38% 32%,#c9f5a6,var(--green) 50%,#1c5e0e)}
+.cost.cheap{box-shadow:0 0 0 1.5cqw var(--leaf),0 0 5cqw var(--leaf)}
+.atk,.hp{position:absolute;bottom:-4cqw;width:27cqw;height:27cqw;border-radius:50%;display:grid;place-items:center;font:17cqw/1 var(--f-title);color:#fff;text-shadow:0 1cqw 0 #000a,0 0 1.5cqw #000;border:1.8cqw solid #2a1706;z-index:2;padding-top:2cqw;font-variant-numeric:tabular-nums}
+.atk{left:-4cqw;background:radial-gradient(circle at 38% 32%,#fff2a8,#f0b92a 50%,#9a6a06)}
+.hp{right:-4cqw;background:radial-gradient(circle at 38% 32%,#ffb19c,var(--tomato) 50%,#7d1a08)}
+.atk.up{color:#d7ff8f}
+.hp.hurt{background:radial-gradient(circle at 38% 32%,#ff9a86,#a8220c 55%,#4d0c02)}
+.hp.up{color:#d7ff8f}
+.tags{position:absolute;top:-4cqw;right:-4cqw;display:flex;gap:1cqw;z-index:2}
+.tag{width:22cqw;height:22cqw;border-radius:50%;background:#1c120a;border:1.6cqw solid var(--gold);display:grid;place-items:center;font-size:12cqw;line-height:1}
+.kwi{font-size:13cqw;line-height:1}
+.shield .cf{box-shadow:0 0 0 2.5cqw #8fe2ff,0 0 9cqw #8fe2ff,0 1.5cqw 0 #0008}
+.fresh .por img{filter:saturate(.6) brightness(.82)}
+.tok{position:absolute;top:-4cqw;right:-4cqw;z-index:2;background:var(--wood-d);color:var(--cream);font:8cqw/1 var(--f-name);padding:2.5cqw 4cqw 2cqw;border-radius:99px;border:1.2cqw solid var(--gold)}
+
+/* ============ BOARD ============ */
+.hud{display:flex;align-items:center;gap:8px;width:100%;min-height:40px}
+.av{position:relative;width:46px;height:46px;flex:0 0 auto}
+.av .face{width:100%;height:100%;border-radius:50%;overflow:hidden;border:3px solid var(--gold);box-shadow:0 0 0 2px #2a1706}
+.av .face img{width:100%;height:100%;object-fit:cover;transform:scale(1.15)}
+.av .hpb{position:absolute;right:-8px;bottom:-6px;min-width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font:16px/1 var(--f-title);color:#fff;padding:3px 2px 0;text-shadow:0 1px 0 #000;border:2px solid #2a1706;background:radial-gradient(circle at 38% 32%,#ffb19c,var(--tomato) 50%,#7d1a08);font-variant-numeric:tabular-nums}
+.av .hpb.low{animation:throb 1s ease-in-out infinite}
+@keyframes throb{50%{transform:scale(1.15)}}
+.hud .who{display:flex;flex-direction:column;line-height:1.1;min-width:0;padding-left:6px;overflow:hidden}
+.hud .n{font:16px/1 var(--f-name);color:var(--gold);letter-spacing:.3px;text-shadow:0 2px 0 #000}
+.hud .s{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.potbar{display:flex;align-items:center;gap:4px;flex:0 0 auto}
+.potbar img{width:20px;height:auto;flex:0 0 auto;filter:drop-shadow(0 1px 0 #000)}
+.segs{display:flex;gap:2px;padding:3px;border-radius:7px;background:#1a110a;border:2px solid #6a6f73;box-shadow:inset 0 1px 3px #000}
+.seg{width:9px;height:12px;border-radius:2px;background:#3a3a36}
+.seg.on{background:linear-gradient(#b9f27c,var(--leaf) 50%,#3f8f1c)}
+.seg.spent{background:#2c4a1c}
+.ai .seg.on{background:linear-gradient(#fff09a,#f2c22c 50%,#b88908)}
+.ai .seg.spent{background:#4a3f1a}
+.potbar .t{font:13px/1 var(--f-name);color:var(--leaf);font-variant-numeric:tabular-nums;text-shadow:0 1px 0 #000}
+.ai .potbar .t{color:var(--gold)}
+.spacer{flex:1 1 auto}
+.mini{min-width:30px;height:30px;border-radius:50%;border:2px solid var(--gold);background:var(--night-2);font:15px/1 var(--f-title);color:var(--gold);padding:3px 6px 0}
+.mini.on{background:var(--gold);color:var(--ink)}
+
+.board{position:relative;width:min(100%,calc((100dvh - 150px) * 1.58));padding:7px;border-radius:14px;border:3px solid #2a1706;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;box-shadow:0 6px 0 #1c0f05,0 10px 24px #000c}
+.slot{position:relative;aspect-ratio:.72;border-radius:7px;background:url(assets/sand1.webp) center/cover,#e3c07e;box-shadow:inset 0 0 0 2px #00000033,inset 0 3px 8px #0006}
+.slot.ai{filter:saturate(.92) brightness(.96)}
+.aisle{position:relative;aspect-ratio:.72/.4;border-radius:6px;background:url(assets/sand2.webp) center/cover,#d9b56f;box-shadow:inset 0 0 0 2px #00000033,inset 0 2px 6px #0005;cursor:pointer}
+.slot .card{position:absolute;inset:3%;aspect-ratio:auto}
+.slot.tgt{outline:3px solid var(--leaf);outline-offset:-2px;animation:pulse 1s ease-in-out infinite}
+.slot.ai.tgt,.aisle.tgt{outline:3px solid #ff8a5c;outline-offset:-2px;animation:pulse 1s ease-in-out infinite}
+.slot.info{outline:3px dashed var(--cream);outline-offset:-3px}
+@keyframes pulse{50%{outline-offset:-6px}}
+.aisle .peel{position:absolute;left:50%;width:50%;transform:translateX(-50%);filter:drop-shadow(0 2px 1px #0007)}
+.aisle .peel.ai{top:2%}
+.aisle .peel.me{bottom:2%}
+.aisle .peel.ai img{transform:rotate(180deg)}
+.pv{position:absolute;left:50%;transform:translateX(-50%);font:11px/1 var(--f-name);white-space:nowrap;padding:3px 5px 2px;border-radius:6px;background:#1c120ad9;color:var(--cream);border:1.5px solid #ffffff30;pointer-events:none}
+.pv.me{bottom:2px;border-color:var(--leaf)}
+.pv.ai{top:2px;border-color:#ff8a5c}
+.pv.face{background:#7a1b08e6;color:#fff}
+.pv.wait{opacity:.75}
+.lunge-me{animation:lungeUp .26s ease-in-out}
+.lunge-ai{animation:lungeDown .26s ease-in-out}
+@keyframes lungeUp{50%{transform:translateY(-38%) scale(1.08)}}
+@keyframes lungeDown{50%{transform:translateY(38%) scale(1.08)}}
+.pop{animation:plop .38s ease-out}
+@keyframes plop{0%{transform:translateY(-22px) scale(.5);opacity:0}70%{transform:scale(1.08)}100%{transform:none;opacity:1}}
+
+/* ============ SIDE: forecast sign + inspector ============ */
+#forecast{position:relative;border-radius:12px;border:3px solid #2a1706;padding:10px 8px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 4px 0 #1c0f05;cursor:pointer}
+.signT{font:15px/1 var(--f-title);color:#fff;letter-spacing:.6px;text-shadow:0 2px 0 #000,0 0 3px #000,1px 1px 0 #000;text-align:center}
+.wx{width:72px;aspect-ratio:1;border-radius:50%;overflow:hidden;border:4px solid var(--ring);box-shadow:0 0 0 2px #2a1706,0 0 14px #ffcf5a66;flex:0 0 auto}
+.wx img{width:100%;height:100%;object-fit:cover;transform:scale(1.06)}
+.wxn{font:14px/1.05 var(--f-name);color:var(--cream);text-shadow:0 2px 0 #000;text-align:center}
+.cd{font:12px/1 var(--f-name);background:#1c120a;border:2px solid var(--gold);color:var(--gold);border-radius:99px;padding:4px 9px 3px;white-space:nowrap}
+.cd.now{background:var(--tomato);color:#fff;border-color:#fff;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{background:#8c200c}}
+.queue{display:flex;align-items:center;gap:6px}
+.queue .q{width:28px;aspect-ratio:1;border-radius:50%;overflow:hidden;border:2px solid #8a6a3a;opacity:.85}
+.queue .q img{width:100%;height:100%;object-fit:cover}
+.queue span{font-size:11px;color:var(--cream);font-weight:700;text-shadow:0 1px 0 #000}
+
+#insp{display:flex;flex-direction:column;gap:6px;align-items:stretch;min-height:0}
+#insp .card.big{width:min(100%,140px);align-self:center}
+.ip{background:#000000a0;border:1px solid #ffffff22;border-radius:10px;padding:7px 9px;font-size:12.5px;line-height:1.3}
+.ip .t{font:14px/1.1 var(--f-name);color:var(--gold)}
+.ip .fl{color:var(--muted);font-style:italic}
+.ip .hint{display:block;color:var(--leaf);font-weight:800;margin-top:2px}
+.ip .hint.warn{color:#ffb08a}
+.ip .chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:3px}
+.ip .chip{background:var(--wood);border-radius:6px;padding:1px 6px;font-size:11.5px;font-weight:600}
+.ip .chip b{font-weight:800}
+.ip .rule{font-size:14px;font-weight:700;color:#fff;margin-block:3px}
+.ip .meta{font-weight:700;color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+@media (orientation:landscape){#insp .rule{display:none}}
+.btn{font:16px/1 var(--f-title);letter-spacing:.5px;background:linear-gradient(#8ee75a,#3e9c1e);color:#fff;border:2px solid #1d560b;border-radius:11px;padding:10px 12px 7px;box-shadow:0 3px 0 #1d560b;text-shadow:0 1px 0 #0008;align-self:center}
+.btn.ghost{background:#1c120a;border-color:var(--gold);color:var(--gold);box-shadow:none;font-size:13px;padding:7px 10px 5px}
+@media (orientation:portrait){
+  #insp{flex-direction:row;align-items:center;min-height:64px}
+  #insp .card.big{display:none}
+  #insp .ip{flex:1 1 auto;min-width:0}
+  #insp .btn{flex:0 0 auto}
+  #forecast{flex-direction:row;padding:6px 10px;gap:10px;justify-content:flex-start}
+  #forecast .wx{width:40px;border-width:3px}
+  #forecast .signT{font-size:12px;text-align:left}
+  #forecast .wxn{text-align:left;font-size:13px}
+  #forecast .col{display:flex;flex-direction:column;gap:3px;align-items:flex-start;min-width:0;flex:1 1 auto}
+  #forecast .queue{margin-left:auto}
+}
+@media (orientation:landscape){#forecast .col{display:contents}#forecast{padding:8px 6px 7px;gap:4px}#forecast .wx{width:56px}#forecast .signT{font-size:13px}}
+
+/* ============ HAND ============ */
+.handT{font:13px/1 var(--f-title);color:var(--muted);letter-spacing:.8px;padding:2px 2px 8px;display:flex;justify-content:space-between;gap:6px}
+.handT #handN{font:12px/1 var(--f-body);font-weight:700;letter-spacing:0}
+#hand{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 10px;overflow-y:auto;overflow-x:hidden;padding:8px 6px 10px;min-height:0;scrollbar-width:thin;align-content:start}
+.hcard{display:block;transition:transform .15s ease;width:100%}
+.hcard.sel{transform:translateY(-6px) scale(1.04);filter:drop-shadow(0 0 6px var(--leaf)) drop-shadow(0 0 2px var(--leaf))}
+.hcard.ok{filter:drop-shadow(0 0 5px #7ad13fdd)}
+.hcard.cant{filter:brightness(.68) saturate(.75)}
+.hcard.cant .cost{background:radial-gradient(circle at 38% 32%,#ff9a86,#b3230d 55%,#4d0c02)}
+.empty{grid-column:1/-1;color:var(--muted);font-style:italic;font-size:13px}
+@media (orientation:portrait){
+  .handT{display:none}
+  #hand{display:flex;overflow-x:auto;overflow-y:hidden;gap:9px;padding:10px 6px 10px;margin-inline:-6px;scrollbar-width:none;min-height:166px}
+  #hand::-webkit-scrollbar{display:none}
+  .hcard{flex:0 0 100px;width:100px}
+}
+
+/* ============ BOTTOM BAR ============ */
+#bar{display:flex;align-items:center;gap:10px;border-radius:14px;border:3px solid #2a1706;padding:5px 10px 5px 8px;box-shadow:0 4px 0 #1c0f05;min-height:56px}
+.plank{display:flex;align-items:center;gap:8px;background:#00000040;border-radius:9px;padding:4px 10px;box-shadow:inset 0 1px 3px #0008;min-width:0}
+.plank .n{font:15px/1 var(--f-name);color:#fff;text-shadow:0 2px 0 #000;white-space:nowrap}
+.pow{position:relative;width:46px;height:40px;border-radius:9px;background:var(--wood-d);border:2px solid var(--gold);display:grid;place-items:center;box-shadow:0 3px 0 #1c0f05;flex:0 0 auto}
+.pow img{width:80%}
+.pow .pc{position:absolute;top:-8px;left:-8px;width:21px;height:21px;border-radius:50%;background:radial-gradient(circle at 38% 32%,#c9f5a6,var(--green) 50%,#1c5e0e);border:2px solid #2a1706;font:12px/1 var(--f-title);color:#fff;display:grid;place-items:center;padding-top:2px}
+.pow.off{filter:grayscale(.9) brightness(.55)}
+.pow.sel{box-shadow:0 0 0 3px var(--leaf),0 3px 0 #1c0f05}
+.endt{flex:0 0 auto;width:118px;border-radius:12px;overflow:hidden;box-shadow:0 3px 0 #0a3d05;transition:transform .1s}
+.endt img{width:100%}
+.endt:active{transform:translateY(2px)}
+.endt:disabled{filter:grayscale(1) brightness(.55);cursor:default}
+.endt.nudge{animation:nudge 1.3s ease-in-out infinite}
+@keyframes nudge{50%{box-shadow:0 3px 0 #0a3d05,0 0 0 5px #8ee75a88}}
+@media (max-width:560px){.plank .n{display:none}.endt{width:96px}#bar{gap:7px;padding-inline:6px}.seg{width:6px;height:11px}.segs{gap:1px;padding:2px}.hud .s{font-size:11px}.hud{gap:6px}}
+
+/* ============ FX & OVERLAYS ============ */
+#fx{position:absolute;inset:0;pointer-events:none;z-index:40;overflow:hidden}
+.fx{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;animation:fxp 1.05s ease-out both;pointer-events:none}
+@keyframes fxp{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.18)}30%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1}100%{opacity:0;transform:translate(-50%,-125%) scale(1)}}
+.fx.dmg{font:28px/1 var(--f-title);color:#ff4a2a;text-shadow:0 0 2px #000,0 2px 0 #000,2px 0 0 #000,-2px 0 0 #000,0 -2px 0 #000}
+.fx.heal{font:24px/1 var(--f-title);color:#8bff6a;text-shadow:0 0 2px #000,0 2px 0 #000,2px 0 0 #000,-2px 0 0 #000}
+.fx.buff{font:15px/1 var(--f-title);color:#e2ff9a;text-shadow:0 0 2px #000,0 2px 0 #000,2px 0 0 #000,-2px 0 0 #000}
+.fx.word{font:13px/1 var(--f-name);color:var(--cream);background:#1c120a;padding:5px 9px 4px;border-radius:8px;border:2px solid var(--gold)}
+.fx.burst{filter:drop-shadow(2px 0 0 #000) drop-shadow(-2px 0 0 #000) drop-shadow(0 2px 0 #000) drop-shadow(0 -2px 0 #000) drop-shadow(0 4px 2px #0008)}
+.fx.burst span{display:block;font:17px/1 var(--f-title);letter-spacing:.5px;color:#ffd21f;-webkit-text-stroke:1.2px #000;background:#fff;padding:20px 24px 16px;clip-path:polygon(50% 0%,61% 17%,83% 5%,78% 30%,100% 33%,85% 52%,100% 70%,77% 72%,81% 96%,60% 84%,50% 100%,40% 84%,19% 96%,23% 72%,0% 70%,15% 52%,0% 33%,22% 30%,17% 5%,39% 17%)}
+.fx.burst.blue span{background:#c8f0ff;color:#fff}
+.fx.burst.red span{background:#ffd2b8;color:#ff5a1f}
+
+.banner{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:50;padding-inline:20px}
+.banner .in{text-align:center;animation:bn .45s cubic-bezier(.2,1.6,.4,1) both;border:4px solid #2a1706;border-radius:16px;padding:14px 20px 12px;max-width:380px;transform:rotate(-3deg);box-shadow:0 6px 0 #1c0f05,0 12px 30px #000c;display:flex;flex-direction:column;align-items:center;gap:6px}
+.banner .wx{width:86px}
+.banner .bt{font:30px/1.05 var(--f-title);color:#fff;letter-spacing:1px;text-shadow:0 3px 0 #000,2px 0 0 #000,-2px 0 0 #000,0 -2px 0 #000;text-wrap:balance}
+.banner .bs{font-size:14px;line-height:1.3;color:var(--cream);background:#000000a0;border-radius:8px;padding:5px 9px}
+@keyframes bn{0%{transform:rotate(-3deg) scale(.4);opacity:0}100%{transform:rotate(-3deg) scale(1);opacity:1}}
+.reveal{position:absolute;inset:0;z-index:55;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#0b0805a8;pointer-events:none}
+.reveal .rl{font:18px/1 var(--f-title);color:var(--gold);letter-spacing:1px;text-shadow:0 2px 0 #000}
+.reveal .card{width:min(170px,40vh);animation:bn .35s cubic-bezier(.2,1.5,.4,1) both}
+
+.ov{position:absolute;inset:0;z-index:60;background:#0b0805f2;display:flex;flex-direction:column;align-items:center;padding:20px 16px;overflow-y:auto;gap:12px;text-align:center}
+.ov.center{justify-content:center}
+.logo{font:46px/.9 var(--f-title);color:var(--gold);letter-spacing:1px;text-shadow:0 4px 0 #3a2006,2px 0 0 #3a2006,-2px 0 0 #3a2006,0 -2px 0 #3a2006,0 0 26px #f6c43c44;transform:rotate(-3deg)}
+.logo span{display:block;font-size:22px;color:var(--sky);margin-block:4px}
+.fan{position:relative;width:300px;max-width:100%;height:178px;margin-block:2px;flex:0 0 auto}
+.fan .card{position:absolute;left:50%;top:6px;width:112px}
+.fan .card:nth-child(1){transform:translateX(-130%) rotate(-12deg)}
+.fan .card:nth-child(2){transform:translateX(-50%) translateY(-6px);z-index:2}
+.fan .card:nth-child(3){transform:translateX(30%) rotate(12deg)}
+.ov p{max-width:40ch;margin:0;font-size:15px;line-height:1.4}
+.ov p.small{font-size:13px;color:var(--muted)}
+.steps{margin:0;padding:10px 12px 10px 30px;max-width:42ch;text-align:left;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.35;background:#ffffff10;border:1px solid #ffffff22;border-radius:12px}
+.bigbtn{font:22px/1 var(--f-title);letter-spacing:1px;background:linear-gradient(#8ee75a,#3e9c1e);color:#fff;border:3px solid #1d560b;border-radius:14px;padding:13px 30px 10px;box-shadow:0 5px 0 #1d560b;text-shadow:0 2px 0 #0008}
+.link{color:var(--sky);font-weight:800;font-size:15px;text-decoration:underline;text-underline-offset:3px}
+.endT{font:54px/1 var(--f-title);color:var(--tomato);text-shadow:0 4px 0 #000;transform:rotate(-4deg)}
+.endT.win{color:var(--gold)}
+@media (orientation:landscape) and (max-height:480px){.ov.center{justify-content:flex-start}.logo{font-size:34px}.fan{height:150px}.fan .card{width:96px}}
+
+.help{width:100%;max-width:760px;text-align:left;display:flex;flex-direction:column;gap:12px}
+.tabs{display:flex;gap:6px;position:sticky;top:-20px;background:#0b0805;padding-block:8px;z-index:2;align-items:center}
+.tabs button{flex:1;font:15px/1 var(--f-title);letter-spacing:.5px;padding:10px 0 7px;border-radius:10px;border:2px solid var(--gold);background:var(--night-2);color:var(--gold)}
+.tabs button.on{background:var(--gold);color:var(--ink)}
+.tabs .x{flex:0 0 44px}
+.help h3{font:19px/1.1 var(--f-title);color:var(--gold);letter-spacing:.5px;margin:6px 0 0}
+.help ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.4;max-width:68ch}
+.help dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:14px;line-height:1.35;max-width:68ch}
+.help dt{font-weight:800;color:var(--gold)}
+.help dd{margin:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:20px 14px;padding-top:8px}
+.grid h4{grid-column:1/-1;margin:6px 0 0;font:17px/1 var(--f-title);color:var(--muted);letter-spacing:.5px}
+.grid figure{margin:0;display:flex;flex-direction:column;gap:8px}
+.grid figcaption{font-size:12px;line-height:1.3;color:var(--muted);font-style:italic}
+@media (prefers-reduced-motion:reduce){
+  .slot.tgt,.aisle.tgt,.endt.nudge,.cd.now,.av .hpb.low{animation:none}
+  .lunge-me,.lunge-ai,.pop{animation:none}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <div id="forecast" class="wood" role="button" data-act="fc" tabindex="0" aria-label="El Pronóstico"></div>
+    <div id="insp" aria-live="polite"></div>
+  </aside>
+  <main id="mainc">
+    <div class="hud ai" id="aiBar"></div>
+    <div class="board wood" id="board"></div>
+  </main>
+  <section id="handWrap"><div class="handT"><span>TU MANO</span><span id="handN"></span></div><div id="hand"></div></section>
+  <footer id="bar" class="wood"></footer>
+
+  <div id="fx"></div>
+  <div id="banner" class="banner" hidden></div>
+  <div id="reveal" class="reveal" hidden></div>
+
+  <div id="ovStart" class="ov center">
+    <div class="logo">CÁSCARAS<span>y</span>PARAGUAS</div>
+    <div class="fan" id="fan"></div>
+    <p>Duelo de cartas contra Don Bigote de Piel. Gana quien deje al otro sin Frescura ❤️.</p>
+    <ol class="steps"><li><b>Juega cartas</b> pagando Potasio 💧. Cada turno tienes 1 más.</li><li><b>Pulsa Fin del Turno</b>: cada plátano tuyo pega al de enfrente. Si el carril está vacío, pega a Don Bigote.</li><li><b>Cuidado con el clima</b>: cada 3 rondas llega algo gordo. Los paraguas ☂️ protegen.</li></ol>
+    <button class="bigbtn" data-act="start">¡A jugar!</button>
+    <button class="link" data-act="help">Cómo se juega</button>
+  </div>
+  <div id="ovHelp" class="ov" hidden></div>
+  <div id="ovEnd" class="ov center" hidden></div>
+</div>
+
+<script>
+(()=>{
+'use strict';
+const W=5, MAXHP=25, HANDMAX=8, LANES=[0,1,2,3,4];
+const $=s=>document.querySelector(s);
+const rnd=a=>a[Math.floor(Math.random()*a.length)];
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+let S=null, UID=1;
+const sleep=ms=>new Promise(r=>setTimeout(r,S&&S.fast?ms*0.45:ms));
+const O=s=>s==='me'?'ai':'me';
+const IMG=n=>`assets/${n}.webp`;
+const HEROES={me:{name:'Don Cavendish',img:'cavendish'},ai:{name:'Don Bigote',img:'bigote'}};
+
+/* ================= CARDS =================
+   r = color del coste (o naranja, b azul, g verde), como en las cartas originales */
+const C={
+/* ---------- unidades ---------- */
+resbalones:{name:'Sir Resbalones',type:'unit',r:'o',cost:1,atk:1,hp:1,text:'Último aliento: tira 2 Cáscaras en carriles enemigos al azar.',flavor:'Caballero de la Orden del Suelo Mojado.',
+  death(s){peelRandom(O(s),2)}},
+bebe:{name:'Platanito Bebé',type:'unit',r:'o',cost:1,atk:1,hp:2,kw:{mature:1},text:'Maduración: al inicio de tu turno gana +1/+1 (hasta 3 veces).',flavor:'Todavía no sabe ni pelarse solo.'},
+kamikaze:{name:'Rebanada Kamikaze',type:'unit',r:'o',cost:1,atk:1,hp:1,kw:{kamikaze:1},text:'Kamikaze: al atacar inflige el triple de daño y se sacrifica.',flavor:'Solo se vive una vez. Él, ni eso.'},
+monaguillo:{name:'Monaguillo del Compost',type:'unit',r:'b',cost:1,atk:1,hp:1,text:'Último aliento: devuelve a tu mano una carta aleatoria de tu Compost.',flavor:'Reza por los caídos. Y luego los recicla.',
+  death(s){const p=S[s];const pool=p.compost.filter(k=>k!=='monaguillo'&&!C[k].token);if(pool.length&&p.hand.length<HANDMAX){const k=rnd(pool);p.compost.splice(p.compost.indexOf(k),1);p.hand.push({uid:UID++,id:k});log(`${s==='me'?'Recuperas':'Don Bigote recupera'} <b>${C[k].name}</b> del Compost.`)}}},
+slip:{name:'Saboteador Slip',type:'unit',r:'b',cost:2,atk:1,hp:2,text:'Último aliento: añade 2 Cáscaras (coste 0) a tu mano.',flavor:'Nunca le has visto. Ese es el plan.',
+  death(s){for(let k=0;k<2;k++)if(S[s].hand.length<HANDMAX)S[s].hand.push({uid:UID++,id:'cascara'})}},
+macaco:{name:'Francotirador Macaco',type:'unit',r:'b',cost:2,atk:1,hp:2,kw:{pierce:1},text:'Perforante. Grito: 1 de daño a una unidad enemiga aleatoria.',flavor:'Dispara huesos de mango. Nadie sabe de dónde los saca.',
+  play(s){const t=units(O(s)).filter(x=>!x.u.kw.immune);if(t.length){const x=rnd(t);hurt(x.s,x.i,1,{pierce:true})}}},
+manzano:{name:'Dúo Manzano',type:'unit',r:'o',cost:2,atk:2,hp:1,text:'Grito: invoca una Manzana Cabreada 1/1 en un carril tuyo libre.',flavor:'Una manzana entre plátanos. Nadie hace preguntas.',
+  play(s,i){const f=adjLanes(i).filter(j=>!S[s].board[j]);const j=f.length?rnd(f):freeLanes(s)[0];if(j!==undefined){place(s,j,'manzana');fx({s,i:j},'¡AQUÍ ESTOY!','word')}}},
+guardia:{name:'Guardia de Racimo',type:'unit',r:'o',cost:2,atk:1,hp:3,kw:{shield:1},text:'Escudo: bloquea por completo el primer golpe.',flavor:'Su escudo es una tapa de cubo. Funciona.'},
+clorofila:{name:'Ladrón de Clorofila',type:'unit',r:'b',cost:2,atk:2,hp:2,text:'Grito: el rival tendrá 1 Potasio menos en su próximo turno.',flavor:'Lo verde también se roba.',
+  play(s){S[O(s)].penalty++;fx({hero:O(s)},'−1 Potasio','buff')}},
+maton:{name:'Matón Chiquita',type:'unit',r:'o',cost:3,atk:2,hp:4,kw:{bruise:2},text:'Moratón: cada vez que recibe daño y sobrevive, gana +2 ATK.',flavor:'Cada golpe le madura el mal humor.'},
+capo:{name:'Capo Cavendish',type:'unit',r:'b',cost:3,atk:3,hp:3,kw:{aura:1},text:'Jefe: tus otras unidades tienen +1 ATK.',flavor:'Te hará una oferta que no podrás pelar.'},
+guru:{name:'Guru Fly-Swarm',type:'unit',r:'b',cost:3,atk:2,hp:3,text:'Al inicio de tu turno, cura 1 a tus otras unidades.',flavor:'Ha alcanzado el nirvana. Y a las moscas.',
+  start(s,i){units(s).forEach(x=>{if(x.i!==i&&x.u.hp<x.u.maxhp){x.u.hp++;fx(x,'+1','heal')}})}},
+contrabandista:{name:'Contrabandista Amarillo',type:'unit',r:'o',cost:3,atk:2,hp:4,kw:{spellDiscount:1},text:'Contrabando: tus hechizos cuestan 1 menos.',flavor:'¿Paraguas de imitación? Tengo de todo, colega.'},
+flambeado:{name:'Plátano Flambeado',type:'unit',r:'o',cost:3,atk:3,hp:2,text:'Último aliento: 2 de daño a la unidad enemiga de enfrente y 1 a sus contiguas.',flavor:'Lo flambearon con ron. Decidió compartir el fuego.',
+  death(s,i){const o=O(s);hurt(o,i,2);adjLanes(i).forEach(j=>hurt(o,j,1))}},
+enforcer:{name:'Enforcer No Maduro',type:'unit',r:'o',cost:3,atk:2,hp:5,kw:{immune:1},text:'Inmune: no le afectan los hechizos enemigos ni el clima.',flavor:'Demasiado verde para que le importe nada.'},
+acrobata:{name:'Acróbata Curvado',type:'unit',r:'o',cost:3,atk:3,hp:2,kw:{dodge:1},text:'Esquivo: si le bloquean, salta a un carril contiguo libre y ataca al héroe.',flavor:'Su curva no es un defecto. Es un estilo de vida.'},
+paladin:{name:'Plantain Paladin',type:'unit',r:'o',cost:4,atk:3,hp:6,kw:{shield:1},text:'Escudo. Tanque de carril pesado.',flavor:'Plátano macho. Hay que freírlo para que ceda.'},
+rotten:{name:'Rotten Scrapper',type:'unit',r:'b',cost:4,atk:3,hp:3,kw:{bruise:2},text:'Moratón. Último aliento: 1 de daño a todas las unidades enemigas.',flavor:'Huele a pelea. Y a frutero olvidado.',
+  death(s){units(O(s)).forEach(x=>hurt(x.s,x.i,1))}},
+espia:{name:'Espía Macho',type:'unit',r:'g',cost:4,atk:3,hp:3,text:'Grito: roba 2 cartas.',flavor:'Vigila desde la hamaca. Nadie sospecha de un plátano en la playa.',
+  play(s){draw(s,2)}},
+machacador:{name:'Machacador Verde',type:'unit',r:'g',cost:4,atk:5,hp:3,kw:{trample:1},text:'Arrollar: el daño que sobra al matar una unidad pasa al héroe.',flavor:'Levanta racimos de 40 kilos. En serie.'},
+alquimista:{name:'Alquimista del Puré',type:'unit',r:'o',cost:4,atk:2,hp:4,text:'Grito: la unidad enemiga de enfrente se convierte en puré: pasa a ser 1/1 y pierde sus habilidades.',flavor:'Su tesis: «Todo es puré si lo miras bien».',
+  play(s,i){const o=O(s),f=S[o].board[i];if(f&&!f.kw.immune){f.atk=1;f.hp=1;f.maxhp=1;f.kw={};f.silenced=true;fx({s:o,i},'¡PURÉ!','burst')}},
+  aiLane(s,i){const o=O(s),f=S[o].board[i];return f&&!f.kw.immune?(atkOf(o,i)+f.hp)*0.8-1:-1}},
+lanzador:{name:'Lanzador de Pecíolos',type:'unit',r:'b',cost:4,atk:3,hp:3,text:'Al final de tu turno, 1 de daño a una unidad enemiga aleatoria.',flavor:'Dispara rabitos de plátano. Duelen más de lo que parece.',
+  end(s){const t=units(O(s)).filter(x=>!x.u.kw.immune);if(t.length){const x=rnd(t);hurt(x.s,x.i,1)}}},
+splitter:{name:'El Banana Splitter',type:'unit',r:'o',cost:5,atk:4,hp:4,text:'Último aliento: invoca dos Medias Bananas 2/2.',flavor:'Tres bolas, nata y una crisis de identidad.',
+  death(s,i){[i,...freeLanes(s).filter(j=>j!==i)].filter(j=>!S[s].board[j]).slice(0,2).forEach(j=>place(s,j,'mitad'))}},
+bigote:{name:'Don Bigote de Piel',type:'unit',r:'o',cost:5,atk:4,hp:5,text:'Grito: pone una Cáscara en todos los carriles enemigos.',flavor:'Se peina el bigote cada mañana. Con un peine de cáscara.',
+  play(s){const o=O(s);LANES.forEach(i=>{if(!S[o].peels[i]){S[o].peels[i]=true;fx({aisle:true,i},'¡CÁSCARA!','word')}})},
+  aiLane(s){return LANES.filter(i=>!S[O(s)].peels[i]&&S[O(s)].board[i]).length*1.2}},
+titan:{name:'Stainless Steel Titan',type:'unit',r:'b',cost:5,atk:4,hp:7,kw:{shield:1,umbrella:1},text:'Escudo. Paraguas.',flavor:'Muelles en vez de articulaciones. Y no se oxida.'},
+/* ---------- fichas ---------- */
+manzana:{name:'Manzana Cabreada',type:'unit',token:1,r:'o',cost:1,atk:1,hp:1,text:'Está aquí por error, pero ya que ha venido…'},
+mitad:{name:'Media Banana',type:'unit',token:1,r:'o',cost:2,atk:2,hp:2,img:'splitter',text:'La otra mitad de algo grande.'},
+cascara:{name:'Cáscara',type:'spell',token:1,r:'g',cost:0,target:'enemyLane',img:'peel',bg:'bg-sand',cut:1,text:'Pon una Cáscara en un carril enemigo.',flavor:'El arma más antigua del mundo.',
+  cast(s,t){S[O(s)].peels[t.i]=true;fx({aisle:true,i:t.i},'¡CÁSCARA!','word')},
+  ai(s,t){const f=S[O(s)].board[t.i];return f?1+atkOf(O(s),t.i)*0.5:0.3}},
+/* ---------- paraguas ---------- */
+rerazel:{name:'Cocktail Rerazel',type:'spell',r:'o',cost:1,target:'ally',text:'Un aliado gana <b>Paraguas</b> y +1/+1.',flavor:'Pequeño, rosa y sorprendentemente eficaz contra huracanes.',
+  cast(s,t){const u=uAt(t);u.kw.umbrella=1;buff(t,1,1)},
+  ai(s,t){const u=uAt(t);return 1.5+(u.kw.umbrella?0:0.8)+(S.queue[0].in<=1&&!u.kw.umbrella?2:0)}},
+sirslip:{name:'Sir Slip a Lot',type:'spell',r:'o',cost:2,target:null,text:'Tira una Cáscara en 2 carriles enemigos al azar.',flavor:'Previsión: 100 % de probabilidad de resbalón.',
+  cast(s){peelRandom(O(s),2)},
+  ai(s){return LANES.filter(i=>!S[O(s)].peels[i]&&S[O(s)].board[i]).length*1.1}},
+chatts:{name:'Lord Chatts Macintosh',type:'spell',r:'b',cost:2,target:'ally',text:'Un aliado gana <b>Escudo</b> y <b>Paraguas</b>.',flavor:'Un caballero nunca se moja. Ni se despeina.',
+  cast(s,t){const u=uAt(t);u.kw.shield=1;u.kw.umbrella=1;fx(t,'¡BLINDADO!','word')},
+  ai(s,t){const u=uAt(t);return u.kw.shield?0.2:2+atkOf(t.s,t.i)*0.4}},
+parasol:{name:'Cocktail Parasol',type:'spell',r:'b',cost:3,target:null,text:'Tus unidades ganan <b>Paraguas</b> y +0/+1.',flavor:'Coreografía ensayada durante meses.',
+  cast(s){units(s).forEach(x=>{x.u.kw.umbrella=1;x.u.hp++;x.u.maxhp++;fx(x,'☂ +1','buff')})},
+  ai(s){const n=units(s).filter(x=>!x.u.kw.umbrella).length;return n<2?-1:n*0.8+(S.queue[0].in<=1?n:0)-1}},
+/* ---------- otros hechizos ---------- */
+golpe:{name:'Golpe de Calor',type:'spell',r:'o',cost:2,target:'enemy',img:'heat',text:'Inflige 3 de daño a una unidad enemiga.',flavor:'Madurar de golpe también duele.',
+  cast(s,t){fx(t,'¡FSSS!','burst red');hurt(t.s,t.i,3,{spell:s})},ai:dmgAI(3)},
+manotazo:{name:'Manotazo Simio',type:'spell',r:'b',cost:3,target:'enemy',img:'apes',text:'Inflige 4 de daño a una unidad enemiga.',flavor:'Los monos no piden permiso.',
+  cast(s,t){fx(t,'¡PLAF!','burst');hurt(t.s,t.i,4,{spell:s})},ai:dmgAI(4)},
+dinamita:{name:'Dinamita de Mono',type:'spell',r:'b',cost:4,target:'enemy',img:'dynamite',bg:'bg-sunset',cut:1,text:'Destruye una unidad enemiga.',flavor:'Los monos no deberían tener dinamita. Y sin embargo.',
+  cast(s,t){const u=uAt(t);u.hp=0;fx(t,'¡BUM!','burst red')},ai(s,t){return val(t)-2.5}},
+batido:{name:'Batido Helado',type:'spell',r:'b',cost:5,target:null,img:'coffee',bg:'bg-purple',cut:1,text:'Inflige 2 de daño a TODAS las unidades. Las tuyas también.',flavor:'Nadie sale entero de la batidora.',
+  cast(s){allUnits().forEach(x=>hurt(x.s,x.i,2,{spell:s}))},
+  ai(s){let v=0;allUnits().forEach(x=>{if(x.s!==s&&x.u.kw.immune)return;const k=x.u.kw.shield?0.3:(x.u.hp<=2?val(x)+1:1);v+=x.s===s?-k:k});return v-3}},
+coctel:{name:'Cóctel de Coco',type:'spell',r:'o',cost:2,target:null,img:'coconut',bg:'bg-sky',cut:1,text:'Recupera 5 de Frescura.',flavor:'Con sombrillita. Obviamente.',
+  cast(s){healHero(s,5)},ai(s){return MAXHP-S[s].hp>=6?3:-1}},
+muelles:{name:'Muelles Traviesos',type:'spell',r:'g',cost:2,target:'enemy',img:'springs',bg:'bg-sky',cut:1,text:'Devuelve una unidad enemiga a la mano de su dueño. Las fichas desaparecen.',flavor:'¡BOING! Y de vuelta al banquillo.',
+  cast(s,t){const u=uAt(t);S[t.s].board[t.i]=null;if(!C[u.id].token&&S[t.s].hand.length<HANDMAX)S[t.s].hand.push({uid:UID++,id:u.id});fx(t,'¡BOING!','burst blue')},
+  ai(s,t){const u=uAt(t);return val(t)*0.6+(C[u.id].token?1:0)+(u.grown||0)-1}},
+cosecha:{name:'Cosecha Temprana',type:'spell',r:'o',cost:2,target:'ally',img:'greenbananas',bg:'bg-jungle',cut:1,text:'Un aliado gana +2/+2.',flavor:'Recién cortados. Con todo el potasio.',
+  cast(s,t){buff(t,2,2)},ai(s,t){return 3.2+(uAt(t).fresh?0:0.4)}},
+racimo:{name:'Racimo de Repuesto',type:'spell',r:'o',cost:2,target:null,img:'bunch',bg:'bg-jungle',cut:1,text:'Roba 2 cartas.',flavor:'Siempre hay otro plátano.',
+  cast(s){draw(s,2)},ai(s){return S[s].hand.length<=4?3:-1}},
+amanado:{name:'Pronóstico Amañado',type:'spell',r:'g',cost:1,target:null,img:'hurricane',text:'El próximo clima del Pronóstico ocurre ahora mismo. Roba una carta.',flavor:'El hombre del tiempo acepta sobornos en plátanos.',
+  async cast(s){draw(s,1);await weather()},ai(s){return weatherValue(s)+0.5}},
+};
+const SHORT={"resbalones": "Al morir: 2 cáscaras", "bebe": "Crece +1/+1 cada turno", "kamikaze": "Pega ×3 y se sacrifica", "monaguillo": "Al morir: recupera 1 carta", "slip": "Al morir: 2 cáscaras a tu mano", "macaco": "1 daño al entrar. Perfora", "manzano": "Trae una Manzana 1/1", "guardia": "Escudo: aguanta 1 golpe", "clorofila": "Rival: −1 Potasio", "maton": "+2 ATK si le pegan", "capo": "Tus otros +1 ATK", "guru": "Cura 1 a los tuyos", "contrabandista": "Hechizos −1 coste", "flambeado": "Al morir: quema enfrente", "enforcer": "Inmune a hechizos y clima", "acrobata": "Esquiva y pega al héroe", "paladin": "Escudo. Muy duro", "rotten": "Al morir: 1 daño a todos", "espia": "Al entrar: roba 2 cartas", "machacador": "Lo que sobra, al héroe", "alquimista": "Enfrente → puré 1/1", "lanzador": "1 daño al azar cada turno", "splitter": "Al morir: dos Medias 2/2", "bigote": "Cáscaras en todos sus carriles", "titan": "Escudo y Paraguas", "manzana": "Ficha 1/1", "mitad": "Ficha 2/2", "cascara": "Cáscara en un carril rival", "rerazel": "Un aliado: ☂ y +1/+1", "sirslip": "2 cáscaras al azar al rival", "chatts": "Un aliado: Escudo y ☂", "parasol": "Todos tus plátanos: ☂ y +0/+1", "golpe": "3 de daño a un enemigo", "manotazo": "4 de daño a un enemigo", "dinamita": "Destruye un enemigo", "batido": "2 de daño a TODOS", "coctel": "Te curas 5", "muelles": "Devuelve un enemigo a su mano", "cosecha": "Un aliado +2/+2", "racimo": "Roba 2 cartas", "amanado": "El clima llega ya. Roba 1"};
+for(const k in C){C[k].img=C[k].img||k;C[k].short=SHORT[k]||''}
+const KW={shield:['Escudo','🛡️','Bloquea por completo el siguiente golpe.'],umbrella:['Paraguas','☂️','El clima no le afecta.'],bruise:['Moratón','💢','Al recibir daño y sobrevivir, gana ATK.'],pierce:['Perforante','🎯','Su daño ignora el Escudo.'],trample:['Arrollar','🔨','El daño sobrante al matar pasa al héroe.'],kamikaze:['Kamikaze','💥','Golpea el triple y se sacrifica.'],mature:['Maduración','🌱','+1/+1 al inicio de tu turno (3 veces).'],dodge:['Esquivo','🤸','Si le bloquean, salta a un carril libre.'],immune:['Inmune','🚫','Ni hechizos enemigos ni clima.'],aura:['Jefe','🎩','Tus otras unidades +1 ATK.'],spellDiscount:['Contrabando','📦','Tus hechizos cuestan 1 menos.']};
+
+/* ================= WEATHER ================= */
+const WEATHER={
+  calor:{name:'Ola de Calor',img:'heat',text:'Las unidades sin Paraguas maduran de golpe: +1 ATK y −1 de vida.',
+    run(){allUnits().forEach(x=>{if(sheltered(x.u)){fx(x,'☂','word');return}x.u.atk++;x.u.hp--;fx(x,'+1 / −1','buff')})}},
+  huracan:{name:'Huracán',img:'hurricane',text:'Las unidades sin Paraguas con 3 o menos de vida salen volando a la mano de su dueño.',
+    run(){allUnits().forEach(x=>{if(sheltered(x.u)||x.u.hp>3)return;S[x.s].board[x.i]=null;if(!C[x.u.id].token&&S[x.s].hand.length<HANDMAX)S[x.s].hand.push({uid:UID++,id:x.u.id});fx(x,'¡FIUUU!','burst blue')})}},
+  monos:{name:'Invasión de Monos',img:'apes',text:'Un mono se come la unidad sin Paraguas con más ATK de cada bando… y tira la cáscara en su carril.',
+    run(){['me','ai'].forEach(s=>{const c=units(s).filter(x=>!sheltered(x.u)).sort((a,b)=>atkOf(b.s,b.i)-atkOf(a.s,a.i));if(!c.length)return;const x=c[0];S[s].board[x.i]=null;if(!C[x.u.id].token)S[s].compost.push(x.u.id);S[s].peels[x.i]=true;fx(x,'¡ÑAM!','burst')})}},
+};
+const WKEYS=Object.keys(WEATHER);
+
+/* ================= ENGINE ================= */
+function newSide(){return {hp:MAXHP,max:0,mana:0,penalty:0,deck:buildDeck(),hand:[],compost:[],board:Array(W).fill(null),peels:Array(W).fill(false),usedPower:false,fatigue:0}}
+function buildDeck(){
+  const pool=Object.keys(C).filter(k=>!C[k].token);const deck=[],cnt={};
+  [[0,1,5],[2,2,7],[3,3,6],[4,4,4],[5,9,3]].forEach(([lo,hi,n])=>{
+    const c=pool.filter(k=>C[k].cost>=lo&&C[k].cost<=hi);let got=0,tries=0;
+    while(got<n&&tries++<300){const k=rnd(c);if((cnt[k]||0)>=2)continue;cnt[k]=(cnt[k]||0)+1;deck.push(k);got++}
+  });
+  return shuffle(deck);
+}
+function units(s){const r=[];S[s].board.forEach((u,i)=>{if(u)r.push({u,i,s})});return r}
+function allUnits(){return [...units('me'),...units('ai')]}
+const uAt=t=>S[t.s].board[t.i];
+const freeLanes=s=>LANES.filter(i=>!S[s].board[i]);
+const adjLanes=i=>[i-1,i+1].filter(j=>j>=0&&j<W);
+const sheltered=u=>!!(u.kw.umbrella||u.kw.immune);
+function peelRandom(victim,n){shuffle(LANES.filter(i=>!S[victim].peels[i])).slice(0,n).forEach(i=>{S[victim].peels[i]=true;fx({aisle:true,i},'¡CÁSCARA!','word')})}
+function atkOf(s,i){const u=S[s].board[i];if(!u)return 0;let a=u.atk;S[s].board.forEach((v,j)=>{if(v&&j!==i&&v.kw.aura)a+=v.kw.aura});return Math.max(0,a)}
+function val(t){const u=uAt(t);return atkOf(t.s,t.i)+u.hp*0.7+(u.kw.shield?1.5:0)+(u.kw.aura?2:0)+(u.kw.mature?1:0)}
+function dmgAI(n){return (s,t)=>{const u=uAt(t);if(u.kw.shield)return 0.8;return u.hp<=n?val(t)+1.5:n*0.6}}
+function mkUnit(id){const c=C[id];return {uid:UID++,id,atk:c.atk,hp:c.hp,maxhp:c.hp,kw:{...(c.kw||{})},fresh:true,grown:0,slipped:false,silenced:false,pop:true}}
+function place(s,i,id){const u=mkUnit(id);S[s].board[i]=u;return u}
+function costOf(s,card){const c=C[card.id];let k=c.cost;if(c.type==='spell')k-=units(s).filter(x=>x.u.kw.spellDiscount).length;return Math.max(0,k)}
+function buff(t,a,h){const u=uAt(t);u.atk+=a;u.hp+=h;u.maxhp+=h;fx(t,`+${a}/+${h}`,'buff')}
+function hurt(s,i,n,o={}){
+  const u=S[s].board[i];if(!u||n<=0)return 0;
+  if(o.spell&&o.spell!==s&&u.kw.immune){fx({s,i},'INMUNE','word');return 0}
+  if(u.kw.shield&&!o.pierce){u.kw.shield=0;fx({s,i},'¡CLANG!','burst blue');return 0}
+  u.hp-=n;fx({s,i},'−'+n,'dmg');
+  if(u.hp>0&&u.kw.bruise){u.atk+=u.kw.bruise;fx({s,i},`+${u.kw.bruise} ATK`,'buff')}
+  return n;
+}
+function hitHero(s,n){if(n<=0)return;S[s].hp-=n;fx({hero:s},'−'+n,'dmg');checkEnd()}
+function healHero(s,n){const h=Math.min(n,MAXHP-S[s].hp);S[s].hp+=h;fx({hero:s},'+'+h,'heal')}
+function cleanup(){
+  let again=true,guard=0;
+  while(again&&guard++<20){
+    again=false;
+    for(const s of ['me','ai'])for(let i=0;i<W;i++){
+      const u=S[s].board[i];
+      if(u&&u.hp<=0){
+        S[s].board[i]=null;again=true;
+        if(!C[u.id].token)S[s].compost.push(u.id);
+        fx({s,i},rnd(['¡SPLAT!','¡CHOF!','¡PLAF!']),'burst');
+        const d=C[u.id].death;if(d&&!u.silenced)d(s,i,u);
+      }
+    }
+  }
+  checkEnd();
+}
+function draw(s,n=1){
+  const p=S[s];
+  for(let k=0;k<n;k++){
+    if(!p.deck.length){p.fatigue++;log(`${s==='me'?'No te quedan cartas':'A Don Bigote no le quedan cartas'}: ${p.fatigue} de daño por hambre.`);hitHero(s,p.fatigue);continue}
+    const id=p.deck.pop();
+    if(p.hand.length>=HANDMAX){p.compost.push(id);if(s==='me')log(`Mano llena: <b>${C[id].name}</b> va directa al Compost.`)}
+    else p.hand.push({uid:UID++,id});
+  }
+}
+function targetsFor(s,card){
+  const c=C[card.id],o=O(s);
+  if(c.type==='unit')return freeLanes(s).map(i=>({s,i}));
+  switch(c.target){
+    case 'ally':return units(s).map(x=>({s,i:x.i}));
+    case 'enemy':return units(o).filter(x=>!x.u.kw.immune).map(x=>({s:o,i:x.i}));
+    case 'enemyLane':return LANES.filter(i=>!S[o].peels[i]).map(i=>({aisle:true,i}));
+    default:return [null];
+  }
+}
+function weatherValue(s){const o=O(s);return (units(o).filter(x=>!sheltered(x.u)).length-units(s).filter(x=>!sheltered(x.u)).length)*1.4}
+function checkEnd(){if(S.over)return;if(S.me.hp<=0||S.ai.hp<=0){S.over=true;S.busy=true;setTimeout(showEnd,1100)}}
+
+/* ================= TURN FLOW ================= */
+async function playCard(s,uid,t){
+  const p=S[s],idx=p.hand.findIndex(h=>h.uid===uid);if(idx<0)return;
+  const card=p.hand[idx],c=C[card.id];
+  p.mana-=costOf(s,card);p.hand.splice(idx,1);
+  if(s==='ai'){render();await reveal(card.id);log(`Don Bigote juega <b>${c.name}</b>.`)}
+  if(c.type==='unit'){const u=place(s,t.i,card.id);render();if(c.play){await sleep(280);c.play(s,t.i,u)}}
+  else{await c.cast(s,t);if(!c.token)p.compost.push(card.id)}
+  cleanup();render();
+}
+function usePower(s,i){const p=S[s];p.mana-=2;p.usedPower=true;S[O(s)].peels[i]=true;fx({aisle:true,i},'¡CÁSCARA!','word')}
+async function startTurn(s){
+  if(S.over)return;
+  S.turn=s;const p=S[s];
+  p.max=Math.min(10,p.max+1);p.mana=Math.max(0,p.max-p.penalty);p.penalty=0;p.usedPower=false;
+  S.busy=true;render();
+  await banner(s==='me'?'¡TU TURNO!':'TURNO DE DON BIGOTE',s==='me'?`Tienes ${p.mana} de Potasio 💧 y robas una carta`:'',s==='me'?1100:800);
+  draw(s);
+  units(s).forEach(x=>{x.u.fresh=false});
+  units(s).forEach(x=>{
+    const u=x.u;if(u.silenced)return;
+    if(u.kw.mature&&u.grown<3){u.atk++;u.hp++;u.maxhp++;u.grown++;fx(x,'+1/+1','buff')}
+    const h=C[u.id].start;if(h)h(s,x.i,u);
+  });
+  cleanup();render();
+  if(S.over)return;
+  if(s==='ai'){await aiTurn();if(!S.over)await endTurn('ai')}
+  else{S.busy=false;render()}
+}
+async function endTurn(s){
+  S.busy=true;S.sel=null;S.info=null;render();
+  for(const x of units(s)){const h=C[x.u.id].end;if(h&&!x.u.silenced&&S[s].board[x.i]===x.u){h(s,x.i,x.u);cleanup();render();await sleep(450)}}
+  if(S.over)return;
+  if(units(s).some(x=>!x.u.fresh))await banner('¡AL ATAQUE!',s==='me'?'Cada plátano tuyo pega al de enfrente. Si no hay nadie, a Don Bigote.':'Los plátanos de Don Bigote atacan.',900);
+  await attackPhase(s);if(S.over)return;
+  if(s==='ai'){S.round++;S.queue[0].in--;if(S.queue[0].in<=0){await weather();if(S.over)return}}
+  await startTurn(O(s));
+}
+async function attackPhase(s){
+  const o=O(s),done=new Set();
+  for(let i=0;i<W;i++){
+    if(S.over)return;
+    const u=S[s].board[i];
+    if(!u||u.fresh||done.has(u.uid))continue;
+    done.add(u.uid);
+    if(u.slipped){u.slipped=false;fx({s,i},'Pasmado','word');render();await sleep(380);continue}
+    if(atkOf(s,i)<=0)continue;
+    if(S[s].peels[i]){
+      S[s].peels[i]=false;render();await lunge(s,i);
+      fx({aisle:true,i},'¡RESBALÓN!','burst');hurt(s,i,1);
+      if(s==='me')log('Tu unidad pisa una cáscara y se da un buen trompazo.');
+      cleanup();render();await sleep(650);continue;
+    }
+    let lane=i;
+    if(u.kw.dodge&&S[o].board[i]){
+      const alt=adjLanes(i).find(j=>!S[s].board[j]&&!S[o].board[j]);
+      if(alt!==undefined){S[s].board[alt]=u;S[s].board[i]=null;lane=alt;render();fx({s,i:alt},'¡HOP!','word');await sleep(320)}
+    }
+    const foe=S[o].board[lane],a=atkOf(s,lane),mult=u.kw.kamikaze?3:1;
+    await lunge(s,lane);
+    if(foe){
+      const fa=atkOf(o,lane),fhp=foe.hp,blocked=foe.kw.shield&&!u.kw.pierce,dmg=a*mult;
+      hurt(o,lane,dmg,{pierce:u.kw.pierce});
+      if(u.kw.trample&&!blocked&&dmg>fhp){hitHero(o,dmg-fhp);fx({hero:o},'¡ARROLLADO!','word')}
+      if(!u.kw.kamikaze&&fa>0)hurt(s,lane,fa);
+    }else{fx({hero:o},rnd(['¡ZAS!','¡PAM!','¡TOMA!']),'burst');hitHero(o,a*mult)}
+    if(u.kw.kamikaze)u.hp=0;
+    cleanup();render();await sleep(520);
+  }
+}
+async function weather(){
+  const q=S.queue[0],w=WEATHER[q.id];
+  await banner(w.name,w.text,2000,w.img);
+  w.run();cleanup();render();
+  log(`Ha pasado: <b>${w.name}</b>.`);
+  await sleep(950);
+  S.queue.shift();
+  const last=S.queue[S.queue.length-1];
+  S.queue.push({id:rnd(WKEYS.filter(k=>k!==last.id)),in:3});
+  S.queue[0].in=3;render();
+}
+
+/* ================= AI ================= */
+function unitScore(c,i){
+  const f=S.me.board[i];let sc=c.atk+c.hp*0.7+1;
+  if(c.kw&&c.kw.shield)sc+=1.2;if(c.kw&&c.kw.umbrella)sc+=0.4;
+  if(S.ai.peels[i])sc-=2.5;
+  if(f){const fa=atkOf('me',i);if(c.atk>=f.hp&&!f.kw.shield)sc+=1.5+fa*0.6;if(fa>=c.hp)sc-=1.5}else sc+=1.2;
+  if(c.aiLane)sc+=c.aiLane('ai',i);
+  return sc;
+}
+async function aiTurn(){
+  await sleep(350);
+  for(let k=0;k<12;k++){
+    if(S.over)return;
+    const p=S.ai,opts=[];
+    p.hand.forEach(card=>{
+      const c=C[card.id],cost=costOf('ai',card);if(cost>p.mana)return;
+      targetsFor('ai',card).forEach(t=>{
+        const sc=c.type==='unit'?unitScore(c,t.i):(c.ai?c.ai('ai',t):1);
+        if(sc>0.6)opts.push({card,t,sc:sc+cost*0.35});
+      });
+    });
+    if(opts.length){opts.sort((a,b)=>b.sc-a.sc);const b=opts[0];await playCard('ai',b.card.uid,b.t);await sleep(450);continue}
+    if(!p.usedPower&&p.mana>=2){
+      const lanes=LANES.filter(i=>!S.me.peels[i]&&S.me.board[i]).sort((a,b)=>atkOf('me',b)-atkOf('me',a));
+      if(lanes.length){usePower('ai',lanes[0]);log('Don Bigote tira una cáscara a tu carril.');render();await sleep(800);continue}
+    }
+    break;
+  }
+}
+
+/* ================= FX / UI HELPERS ================= */
+const app=$('#app'),fxLayer=$('#fx');const fxCount={};
+function elOf(t){
+  if(t.hero)return document.getElementById('hero-'+t.hero);
+  if(t.aisle)return document.querySelector(`.aisle[data-i="${t.i}"]`);
+  return document.querySelector(`.slot[data-s="${t.s}"][data-i="${t.i}"]`);
+}
+function fx(t,text,cls){
+  const el0=elOf(t);if(!el0)return;
+  const r=el0.getBoundingClientRect(),a=app.getBoundingClientRect();
+  const x=r.left-a.left+r.width/2,y=r.top-a.top+app.scrollTop+r.height/2;
+  const key=t.hero?'h'+t.hero:(t.aisle?'a':t.s)+t.i;const n=fxCount[key]=(fxCount[key]||0)+1;setTimeout(()=>{fxCount[key]--},700);
+  const el=document.createElement('div');el.className='fx '+cls;
+  if(cls.startsWith('burst')){const sp=document.createElement('span');sp.textContent=text;el.appendChild(sp)}else el.textContent=text;
+  el.style.left=(x+(Math.random()*14-7))+'px';el.style.top=(y+((n-1)%3)*20)+'px';el.style.animationDelay=((n-1)*0.14)+'s';
+  fxLayer.appendChild(el);setTimeout(()=>el.remove(),1700);
+}
+async function lunge(s,i){
+  const el=document.querySelector(`.slot[data-s="${s}"][data-i="${i}"] .card`);
+  if(el){el.classList.remove('pop');el.classList.add('lunge-'+s)}
+  await sleep(260);
+}
+function banner(t,sub,ms,img){
+  return new Promise(r=>{const b=$('#banner');
+    b.innerHTML=`<div class="in wood">${img?`<div class="wx"><img src="${IMG(img)}" alt=""></div>`:''}<div class="bt">${t}</div>${sub?`<div class="bs">${sub}</div>`:''}</div>`;b.hidden=false;
+    setTimeout(()=>{b.hidden=true;r()},S&&S.fast?ms*0.55:ms)});
+}
+async function reveal(id){const r=$('#reveal');r.innerHTML=`<div class="rl">Don Bigote juega</div>${cardHTML(id,{big:1})}`;r.hidden=false;await sleep(1150);r.hidden=true}
+function log(m){S.msg=m}
+const myTurn=()=>S&&S.turn==='me'&&!S.busy&&!S.over;
+
+/* card renderer: id + optional live unit (u) + options */
+function cardHTML(id,o={}){
+  const c=C[id],u=o.u,isSpell=c.type==='spell';
+  const cost=o.cost!==undefined?o.cost:c.cost;
+  const cls=['card',`r-${c.r}`,isSpell?'spell':'unit',o.big?'big':'',o.text?'withtext':''];
+  if(u){if(u.kw.shield)cls.push('shield');if(u.fresh)cls.push('fresh');if(o.pop)cls.push('pop')}
+  const kw=u?u.kw:(c.kw||{});
+  const icons=Object.keys(kw).filter(k=>kw[k]&&KW[k]).map(k=>`<span class="kwi" title="${KW[k][0]}">${KW[k][1]}</span>`).join('');
+  const atk=u?o.atk:c.atk,hp=u?u.hp:c.hp;
+  const tags=u?[u.fresh&&'💤',u.slipped&&'❄️',u.silenced&&'🥣'].filter(Boolean):[];
+  const body=o.big?`<div class="txt">${c.text}</div>`:o.text?`<div class="txt">${c.short}</div>`:`<div class="txt">${icons||(isSpell?'<span class="kwi">✨</span>':'')}</div>`;
+  let st='';
+  if(c.type==='unit'){const up=u&&atk>c.atk,hc=u&&u.hp<u.maxhp?' hurt':(u&&u.maxhp>c.hp?' up':'');st=`<div class="atk${up?' up':''}">${atk}</div><div class="hp${hc}">${hp}</div>`}
+  return `<div class="${cls.join(' ')}"><div class="cf"></div><div class="por ${c.bg||''} ${c.cut?'cut':''}"><img src="${IMG(c.img)}" alt="" draggable="false"></div><div class="ban">${c.name}</div>${body}${o.noCost?'':`<div class="cost${cost<c.cost?' cheap':''}">${cost}</div>`}${st}${tags.length?`<div class="tags">${tags.map(x=>`<span class="tag">${x}</span>`).join('')}</div>`:(c.token&&o.big?'<div class="tok">FICHA</div>':'')}</div>`;
+}
+
+/* ================= RENDER ================= */
+function selTargets(){
+  if(!S||!S.sel||!myTurn())return [];
+  if(S.sel.power)return S.me.mana>=2&&!S.me.usedPower?LANES.filter(i=>!S.ai.peels[i]).map(i=>({aisle:true,i})):[];
+  const h=S.me.hand.find(x=>x.uid===S.sel.uid);if(!h||costOf('me',h)>S.me.mana)return [];
+  return targetsFor('me',h).filter(Boolean);
+}
+function segs(p){let h='';for(let k=0;k<10;k++)h+=`<span class="seg ${k<p.mana?'on':k<p.max?'spent':''}"></span>`;return h}
+function slotHTML(s,i,tg){
+  const u=S[s].board[i],t=tg.some(x=>!x.aisle&&x.s===s&&x.i===i),inf=S.info&&S.info.s===s&&S.info.i===i;
+  let inner='';if(u){inner=cardHTML(u.id,{u,atk:atkOf(s,i),noCost:1,pop:u.pop});u.pop=false}
+  return `<div class="slot ${s}${t?' tgt':''}${inf?' info':''}" data-act="slot" data-s="${s}" data-i="${i}" role="button" aria-label="Carril ${i+1} ${s==='me'?'tuyo':'de Don Bigote'}">${inner}</div>`;
+}
+function aisleHTML(i,tg){
+  const t=tg.some(x=>x.aisle&&x.i===i);
+  const peel=side=>`<div class="peel ${side}"><img src="${IMG('peel')}" alt="Cáscara" draggable="false"></div>`;
+  return `<div class="aisle${t?' tgt':''}" data-act="aisle" data-i="${i}" role="button" aria-label="Franja del carril ${i+1}">${S.ai.peels[i]?peel('ai'):pvChip('ai',i)}${S.me.peels[i]?peel('me'):pvChip('me',i)}</div>`;
+}
+function pvChip(s,i){
+  const u=S[s].board[i];if(!u)return '';
+  const o=O(s),a=atkOf(s,i),arrow=s==='me'?'▲':'▼';
+  if(u.fresh)return `<span class="pv ${s} wait">💤</span>`;
+  if(u.slipped)return `<span class="pv ${s} wait">❄️</span>`;
+  if(a<=0)return '';
+  const m=u.kw.kamikaze?3:1;
+  if(S[o].board[i])return `<span class="pv ${s}">${arrow} ⚔️ ${a*m}</span>`;
+  return `<span class="pv ${s} face">${arrow} 👊 ${a*m}</span>`;
+}
+function previewText(s,i){
+  const u=S[s].board[i],o=O(s),who=s==='me'?'Don Bigote':'ti',a=atkOf(s,i)*(u.kw.kamikaze?3:1);
+  if(u.fresh)return 'Recién plantado: atacará a partir del próximo turno.';
+  if(S[s].peels[i])return 'Tiene una cáscara delante: al intentar atacar resbalará.';
+  if(u.slipped)return 'Está pasmado: se salta su próximo ataque.';
+  if(S[o].board[i])return `Al final del turno pegará ${a} al de enfrente y recibirá ${atkOf(o,i)}.`;
+  return `Carril libre: al final del turno pegará ${a} directamente a ${who}.`;
+}
+function forecastHTML(){
+  const q=S.queue[0],w=WEATHER[q.id];
+  return `<div class="wx"><img src="${IMG(w.img)}" alt=""></div><div class="col"><div class="signT">EL PRONÓSTICO</div><div class="wxn">${w.name}</div><div class="cd${q.in===1?' now':''}">${q.in===1?'¡al final de esta ronda!':`en ${q.in} rondas`}</div></div><div class="queue"><span>luego</span>${S.queue.slice(1,3).map(x=>`<div class="q"><img src="${IMG(WEATHER[x.id].img)}" alt="${WEATHER[x.id].name}"></div>`).join('')}</div>`;
+}
+function kwChips(kw){const k=Object.keys(kw||{}).filter(x=>kw[x]&&KW[x]);return k.length?`<div class="chips">${k.map(x=>`<span class="chip">${KW[x][1]} <b>${KW[x][0]}</b>: ${KW[x][2]}</span>`).join('')}</div>`:''}
+function inspHTML(){
+  $('#side').classList.toggle('selmode',!!(S.sel||S.info));
+  if(S.sel&&S.sel.power){
+    const ok=myTurn()&&S.me.mana>=2&&!S.me.usedPower;
+    return `<div class="ip"><span class="t">Tirar Cáscara</span> · 2 Potasio, una vez por turno.<br>La próxima unidad enemiga que intente atacar desde ese carril resbala: no ataca y recibe 1 de daño.<span class="hint">${ok?'Toca la franja central de un carril.':S.me.usedPower?'Ya la has tirado este turno.':'Te falta Potasio.'}</span></div><button class="btn ghost" data-act="cancel">Cancelar</button>`;
+  }
+  if(S.sel){
+    const h=S.me.hand.find(x=>x.uid===S.sel.uid);if(!h){S.sel=null;return inspHTML()}
+    const c=C[h.id],cost=costOf('me',h),tg=targetsFor('me',h);let hint='',btn='',warn=false;
+    if(!myTurn()){hint='Espera a tu turno.';warn=true}
+    else if(cost>S.me.mana){hint=`Te falta Potasio: cuesta ${cost} y tienes ${S.me.mana}.`;warn=true}
+    else if(!tg.length){hint=c.target==='ally'?'Necesitas un plátano tuyo en el tablero.':c.target==='enemy'?'Don Bigote no tiene unidades a las que apuntar.':'Ahora no hay sitio.';warn=true}
+    else if(tg[0]===null)btn=`<button class="btn" data-act="play">¡JUGAR!</button>`;
+    else hint=c.type==='unit'?'Toca un hueco libre de tu fila.':c.target==='enemyLane'?'Toca la franja central de un carril.':c.target==='enemy'?'Toca una unidad de Don Bigote.':'Toca una unidad tuya.';
+    return `${cardHTML(h.id,{big:1,cost})}<div class="ip"><span class="t">${c.name}</span> <span class="meta">${cost} 💧${c.type==='unit'?` · ⚔️ ${c.atk} · ❤️ ${c.hp}`:' · hechizo'}</span><div class="rule">${c.text}</div>${kwChips(c.kw)}<span class="fl">${c.flavor||''}</span>${hint?`<span class="hint${warn?' warn':''}">👉 ${hint}</span>`:''}</div>${btn}`;
+  }
+  if(S.info&&S.info.weather){
+    const w=WEATHER[S.queue[0].id];
+    return `<div class="ip"><span class="t">${w.name}</span><br>${w.text}<br><span class="fl">Cada 3 rondas llega el clima. Paraguas e Inmune protegen.</span></div><button class="btn ghost" data-act="cancel">Cerrar</button>`;
+  }
+  if(S.info&&S.info.s){
+    const u=S[S.info.s].board[S.info.i];
+    if(u){
+      const c=C[u.id],chips=Object.keys(u.kw).filter(k=>KW[k]&&u.kw[k]).map(k=>`<span class="chip">${KW[k][1]} <b>${KW[k][0]}</b>: ${KW[k][2]}</span>`);
+      if(u.fresh)chips.push('<span class="chip">💤 <b>Recién plantado</b>: aún no ataca</span>');if(u.slipped)chips.push('<span class="chip">❄️ <b>Pasmado</b>: no atacará su próximo turno</span>');if(S[S.info.s].peels[S.info.i])chips.push('<span class="chip">Tiene una cáscara delante</span>');
+      return `${cardHTML(u.id,{big:1,u,atk:atkOf(S.info.s,S.info.i),noCost:1})}<div class="ip"><span class="t">${c.name}</span> <span class="meta">${S.info.s==='me'?'tuya':'de Don Bigote'} · ⚔️ ${atkOf(S.info.s,S.info.i)} · ❤️ ${u.hp}</span><div class="rule">${u.silenced?'Hecho puré: ha perdido sus habilidades.':c.text}</div>${chips.length?`<div class="chips">${chips.join('')}</div>`:''}${S.info.s==='me'?`<span class="hint">👉 ${previewText('me',S.info.i)}</span>`:`<span class="hint" style="color:#ffb08a">👉 ${previewText('ai',S.info.i)}</span>`}</div>`;
+    }
+    S.info=null;return inspHTML();
+  }
+  if(S.info&&S.info.aisle!==undefined){
+    const i=S.info.aisle,a=S.ai.peels[i],m=S.me.peels[i];
+    return `<div class="ip"><span class="t">Franja del carril ${i+1}</span><br>${a||m?`${a?'Hay una cáscara delante de Don Bigote: su unidad resbalará. ':''}${m?'Hay una cáscara delante de tu unidad: cuidado al atacar.':''}`:'Aquí caen las cáscaras. Ahora está limpia.'}</div><button class="btn ghost" data-act="cancel">Cerrar</button>`;
+  }
+  let tip='';
+  if(myTurn()){
+    const canPlay=S.me.hand.some(h=>costOf('me',h)<=S.me.mana&&targetsFor('me',h).length);
+    if(canPlay)tip=units('me').length?'👉 Las cartas que brillan en verde las puedes pagar: tócala y luego toca un hueco verde. Cuando acabes, pulsa <b>Fin del Turno</b>.':'👉 <b>Paso 1:</b> toca una carta que brille en verde y después un hueco verde de tu fila (abajo).';
+    else tip='👉 No te llega el Potasio para más. Pulsa <b>Fin del Turno</b>: tus plátanos atacarán al de enfrente.';
+  }else if(!S.over)tip='Don Bigote está tramando algo…';
+  return `<div class="ip">${S.msg?S.msg+'<br>':''}${tip}</div>`;
+}
+function render(){
+  if(!S)return;
+  const me=S.me,ai=S.ai,tg=selTargets();
+  $('#aiBar').innerHTML=`<div class="av"><div class="face"><img src="${IMG(HEROES.ai.img)}" alt=""></div><div class="hpb${ai.hp<=8?' low':''}" id="hero-ai">${ai.hp}</div></div>
+    <div class="who"><span class="n">${HEROES.ai.name}</span><span class="s">Mano ${ai.hand.length} · Mazo ${ai.deck.length}</span></div><span class="spacer"></span>
+    <div class="potbar"><img src="${IMG('drop')}" alt=""><div class="segs">${segs(ai)}</div><span class="t">${ai.mana}/${ai.max}</span></div>
+    <button class="mini${S.fast?' on':''}" data-act="fast" aria-label="Velocidad">${S.fast?'×2':'×1'}</button><button class="mini" data-act="help" aria-label="Ayuda">?</button>`;
+  $('#board').innerHTML=LANES.map(i=>slotHTML('ai',i,tg)).join('')+LANES.map(i=>aisleHTML(i,tg)).join('')+LANES.map(i=>slotHTML('me',i,tg)).join('');
+  $('#forecast').innerHTML=forecastHTML();
+  $('#insp').innerHTML=inspHTML();
+  const powOk=myTurn()&&me.mana>=2&&!me.usedPower;
+  const anyPlay=myTurn()&&(powOk&&LANES.some(i=>!ai.peels[i])||me.hand.some(h=>costOf('me',h)<=me.mana&&targetsFor('me',h).length));
+  $('#bar').innerHTML=`<div class="av"><div class="face"><img src="${IMG(HEROES.me.img)}" alt=""></div><div class="hpb${me.hp<=8?' low':''}" id="hero-me">${me.hp}</div></div>
+    <div class="plank"><span class="n">${HEROES.me.name}</span><div class="potbar"><img src="${IMG('drop')}" alt="Potasio"><div class="segs">${segs(me)}</div><span class="t">${me.mana}/${me.max}</span></div></div>
+    <span class="spacer"></span>
+    <button class="pow${powOk?'':' off'}${S.sel&&S.sel.power?' sel':''}" data-act="power" aria-label="Tirar cáscara, 2 de potasio"><span class="pc">2</span><img src="${IMG('peel')}" alt=""></button>
+    <button class="endt${myTurn()&&!anyPlay?' nudge':''}" data-act="end" ${myTurn()?'':'disabled'} aria-label="Fin del turno"><img src="${IMG('endturn')}" alt="Fin del Turno"></button>`;
+  $('#handN').textContent=`${me.hand.length}/${HANDMAX} · mazo ${me.deck.length}`;
+  const hand=$('#hand'),sl=hand.scrollLeft,st=hand.scrollTop;
+  hand.innerHTML=me.hand.length?me.hand.map(h=>{
+    const c=C[h.id],cost=costOf('me',h),ok=myTurn()&&cost<=me.mana&&targetsFor('me',h).length>0,sel=S.sel&&S.sel.uid===h.uid;
+    return `<button class="hcard${sel?' sel':''}${myTurn()&&!ok?' cant':''}${ok&&!sel?' ok':''}" data-act="hand" data-uid="${h.uid}" aria-label="${c.name}, coste ${cost}">${cardHTML(h.id,{cost,text:1})}</button>`;
+  }).join(''):'<div class="empty">Sin cartas. Ni un mal plátano.</div>';
+  hand.scrollLeft=sl;hand.scrollTop=st;
+}
+
+/* ================= INPUT ================= */
+async function doPlay(h,t){S.busy=true;S.sel=null;S.info=null;S.msg='';await playCard('me',h.uid,t);if(!S.over)S.busy=false;render()}
+app.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const act=b.dataset.act;
+  if(act==='start'){$('#ovStart').hidden=true;startTurn('me');return}
+  if(act==='help'){openHelp('reglas');return}
+  if(act==='tab'){openHelp(b.dataset.tab);return}
+  if(act==='closeHelp'){$('#ovHelp').hidden=true;return}
+  if(act==='again'){$('#ovEnd').hidden=true;newGame();startTurn('me');return}
+  if(!S||S.over)return;
+  switch(act){
+    case 'fast':S.fast=!S.fast;render();break;
+    case 'hand':{const uid=+b.dataset.uid;S.info=null;S.sel=(S.sel&&S.sel.uid===uid)?null:{uid};render();break}
+    case 'power':S.info=null;S.sel=(S.sel&&S.sel.power)?null:{power:true};render();break;
+    case 'cancel':S.sel=null;S.info=null;render();break;
+    case 'fc':S.sel=null;S.info=(S.info&&S.info.weather)?null:{weather:1};render();break;
+    case 'end':if(myTurn()){S.msg='';endTurn('me')}break;
+    case 'play':{if(!myTurn()||!S.sel)break;const h=S.me.hand.find(x=>x.uid===S.sel.uid);if(h&&costOf('me',h)<=S.me.mana)doPlay(h,null);break}
+    case 'aisle':{
+      const i=+b.dataset.i,tg=selTargets();
+      if(S.sel&&tg.some(x=>x.aisle&&x.i===i)){
+        if(S.sel.power){usePower('me',i);S.sel=null;render()}
+        else{const h=S.me.hand.find(x=>x.uid===S.sel.uid);doPlay(h,{aisle:true,i})}
+      }else{S.sel=null;S.info={aisle:i};render()}
+      break;
+    }
+    case 'slot':{
+      const s=b.dataset.s,i=+b.dataset.i,tg=selTargets();
+      if(S.sel&&tg.some(x=>!x.aisle&&x.s===s&&x.i===i)){const h=S.me.hand.find(x=>x.uid===S.sel.uid);doPlay(h,{s,i})}
+      else{S.sel=null;S.info=S[s].board[i]?{s,i}:null;render()}
+      break;
+    }
+  }
+});
+app.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.id==='forecast'){e.preventDefault();e.target.click()}});
+
+/* ================= OVERLAYS ================= */
+function openHelp(tab){
+  const ov=$('#ovHelp');
+  const rules=`
+  <h3>Cómo se gana</h3>
+  <ol>
+    <li>Deja a Don Bigote sin <b>Frescura</b> (el número rojo de su retrato). Los dos empezáis con ${MAXHP}.</li>
+    <li>Cada turno ganas 1 de <b>Potasio</b> máximo (hasta 10) y se recarga entero. Las cartas cuestan Potasio: el número de arriba a la izquierda.</li>
+    <li>El tablero tiene <b>5 carriles</b>. Arriba están las unidades de Don Bigote, abajo las tuyas y en medio la franja donde caen las cáscaras.</li>
+    <li>Al final de TU turno, cada unidad tuya ataca a la de enfrente y las dos se golpean a la vez (moneda dorada = ataque, círculo rojo = vida). Si el carril de enfrente está vacío, golpea a Don Bigote.</li>
+    <li>Las unidades <b>recién plantadas</b> (💤) no atacan el turno en que entran.</li>
+    <li><b>Tirar Cáscara</b> (botón de la cáscara, 2 Potasio, una vez por turno): la siguiente unidad enemiga que intente atacar desde ese carril resbala, no ataca y recibe 1 de daño.</li>
+    <li><b>El Pronóstico</b> avisa del clima que llega cada 3 rondas y afecta a los dos bandos. Las unidades con <b>Paraguas</b> ☂️ se libran.</li>
+    <li>Si te quedas sin mazo, cada robo te quita Frescura por hambre.</li>
+  </ol>
+  <h3>Habilidades</h3>
+  <dl>${Object.values(KW).map(([n,i,d])=>`<dt>${i} ${n}</dt><dd>${d}</dd>`).join('')}<dt>Grito</dt><dd>Se activa al jugar la carta.</dd><dt>Último aliento</dt><dd>Se activa al morir.</dd><dt>Compost</dt><dd>Tu pila de descartes.</dd></dl>
+  <h3>Climas</h3>
+  <dl>${Object.values(WEATHER).map(w=>`<dt>${w.name}</dt><dd>${w.text}</dd>`).join('')}</dl>`;
+  const ids=Object.keys(C).filter(k=>!C[k].token).sort((a,b)=>C[a].cost-C[b].cost);
+  const fig=k=>`<figure>${cardHTML(k,{big:1})}<figcaption>${C[k].flavor||''}</figcaption></figure>`;
+  const us=ids.filter(k=>C[k].type==='unit'),sp=ids.filter(k=>C[k].type==='spell'),tk=Object.keys(C).filter(k=>C[k].token);
+  const cards=`<div class="grid"><h4>Unidades · ${us.length}</h4>${us.map(fig).join('')}<h4>Paraguas y hechizos · ${sp.length}</h4>${sp.map(fig).join('')}<h4>Fichas</h4>${tk.map(fig).join('')}</div>`;
+  ov.innerHTML=`<div class="help"><div class="tabs"><button class="${tab==='reglas'?'on':''}" data-act="tab" data-tab="reglas">Reglas</button><button class="${tab==='cartas'?'on':''}" data-act="tab" data-tab="cartas">Cartas</button><button class="x" data-act="closeHelp" aria-label="Cerrar">✕</button></div>${tab==='reglas'?rules:cards}</div>`;
+  ov.hidden=false;ov.scrollTop=0;
+}
+function showEnd(){
+  const w=S.ai.hp<=0,l=S.me.hp<=0;
+  const [t,sub]=w&&l?['¡EMPATE!','Los dos acabáis hechos batido.']:w?['¡VICTORIA!','Don Bigote se retira a peinarse el bigote y llorar.']:['DERROTA','Te han hecho puré. Con canela.'];
+  const ov=$('#ovEnd');
+  ov.innerHTML=`<div class="endT${w&&!l?' win':''}">${t}</div><p>${sub}</p><p class="small">Ronda ${S.round} · Tu Frescura ${Math.max(0,S.me.hp)} · Don Bigote ${Math.max(0,S.ai.hp)}</p><button class="bigbtn" data-act="again">Revancha</button>`;
+  ov.hidden=false;
+}
+function newGame(){
+  UID=1;const fast=S?S.fast:false;
+  const q0={id:rnd(WKEYS),in:3},q1={id:rnd(WKEYS.filter(k=>k!==q0.id)),in:3},q2={id:rnd(WKEYS.filter(k=>k!==q1.id)),in:3};
+  S={me:newSide(),ai:newSide(),turn:'me',round:1,queue:[q0,q1,q2],sel:null,info:null,busy:true,over:false,msg:'',fast};
+  draw('me',3);draw('ai',4);render();
+}
+$('#fan').innerHTML=cardHTML('capo',{text:1})+cardHTML('rerazel',{text:1})+cardHTML('bigote',{text:1});
+newGame();
+})();
+</script>
+</body>
+</html>
